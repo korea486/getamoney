@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>방치형 게임 (업그레이드)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+  body {
+    font-family: 'Montserrat', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    margin: 0; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+
+  h1 {
+    font-weight: 700;
+    font-size: 3rem;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+  }
+
+  #money {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+  }
+
+  #incomePerSec {
+    font-size: 1.3rem;
+    margin-bottom: 15px;
+    font-weight: 600;
+    opacity: 0.85;
+  }
+
+  #buffTime {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #ffd54f;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 2px #b28704;
+  }
+
+  #items {
+    width: 400px;
+    max-width: 90vw;
+  }
+
+  .item {
+    background: rgba(255,255,255,0.15);
+    border-radius: 12px;
+    box-shadow: 0 8px 15px rgba(0,0,0,0.25);
+    padding: 15px 20px;
+    margin-bottom: 15px;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 25px rgba(0,0,0,0.35);
+  }
+
+  .item strong {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  .item .desc-price {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 4px;
+  }
+
+  .item-info {
+    max-width: 75%;
+  }
+
+  button {
+    background: #ffd54f;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    color: #4a3c00;
+    box-shadow: 0 6px 12px rgba(255, 213, 79, 0.7);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  button:hover {
+    background: #ffea80;
+    box-shadow: 0 8px 20px rgba(255, 234, 128, 0.9);
+  }
+
+  #buffBtn {
+    margin-top: 30px;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    width: 400px;
+    max-width: 90vw;
+    font-weight: 700;
+    background: linear-gradient(90deg, #ffab40, #ffc046);
+    color: #4a3c00;
+    box-shadow: 0 8px 20px rgba(255, 170, 64, 0.9);
+    border-radius: 15px;
+    user-select: none;
+  }
+
+  #buffBtn:active {
+    transform: scale(0.97);
+    box-shadow: 0 5px 12px rgba(255, 170, 64, 0.8);
+  }
+
+  @media (max-width: 450px) {
+    #items, #buffBtn {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>💰 방치형 게임</h1>
+<div id="money">돈: 0원</div>
+<div id="incomePerSec">초당 수입: 1</div>
+<div id="buffTime"></div>
+<div id="items"></div>
+<button id="buffBtn">10분 동안 2배 버프 구매 (100,000원)</button>
+
+<script>
+  let money = Number(localStorage.getItem('money')) || 0;
+  let baseIncomePerSec = 1;
+  let incomePerSec = Number(localStorage.getItem('incomePerSec')) || baseIncomePerSec;
+  let buffActive = localStorage.getItem('buffActive') === "true";
+  let buffEndTime = Number(localStorage.getItem('buffEndTime')) || 0;
+
+  const items = [
+    { id: 1, name: "자동 수확기", price: 100, income: 1, desc: "초당 수입 +1" },
+    { id: 2, name: "광산 탐사기", price: 500, income: 5, desc: "초당 수입 +5" },
+    { id: 3, name: "농장 확장", price: 1500, income: 10, desc: "초당 수입 +10" },
+    { id: 4, name: "제조 공장", price: 5000, income: 30, desc: "초당 수입 +30" },
+    { id: 5, name: "유통 센터", price: 12000, income: 50, desc: "초당 수입 +50" },
+    { id: 6, name: "광고 캠페인", price: 25000, income: 80, desc: "초당 수입 +80" },
+    { id: 7, name: "해외 지사", price: 50000, income: 150, desc: "초당 수입 +150" },
+    { id: 8, name: "신기술 투자", price: 120000, income: 300, desc: "초당 수입 +300" },
+    { id: 9, name: "인공지능 도입", price: 300000, income: 700, desc: "초당 수입 +700" },
+    { id: 10, name: "우주 사업", price: 1000000, income: 2000, desc: "초당 수입 +2000" }
+  ];
+
+  let boughtItems = JSON.parse(localStorage.getItem('boughtItems')) || {};
+
+  const moneyElem = document.getElementById('money');
+  const incomeElem = document.getElementById('incomePerSec');
+  const buffTimeElem = document.getElementById('buffTime');
+  const itemsContainer = document.getElementById('items');
+  const buffBtn = document.getElementById('buffBtn');
+
+  function renderItems() {
+    itemsContainer.innerHTML = "";
+    items.forEach(item => {
+      const count = boughtItems[item.id] || 0;
+      const div = document.createElement('div');
+      div.className = 'item';
+
+      div.innerHTML = `
+        <div class="item-info">
+          <strong>${item.name}</strong> (${count}개)<br/>
+          <span class="desc-price">가격: ${item.price.toLocaleString()}원<br/>
+          효과: ${item.desc}</span>
+        </div>
+        <button onclick="buyItem(${item.id})">구매</button>
+      `;
+      itemsContainer.appendChild(div);
+    });
+  }
+
+  function updateDisplay() {
+    moneyElem.textContent = `돈: ${Math.floor(돈).toLocaleString()}원`;
+    incomeElem.textContent = `초당 수입: ${incomePerSec.toLocaleString()}`;
+  }
+
+  function buyItem(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    if (money >= item.price) {
+      money -= item.price;
+      boughtItems[id] = (boughtItems[id] || 0) + 1;
+
+      incomePerSec += item.income;
+
+      item.price = Math.floor(item.price * 1.15);
+
+      saveState();
+      renderItems();
+      updateDisplay();
+    } else {
+      alert("돈이 부족합니다!");
+    }
+  }
+
+  function gameLoop() {
+    const now = Date.now();
+
+    if (buffActive && now > buffEndTime) {
+      buffActive = false;
+      incomePerSec /= 2;
+      buffTimeElem.textContent = "";
+      saveState();
+    }
+
+    money += incomePerSec;
+
+    updateDisplay();
+
+    saveState();
+  }
+
+  function activateBuff() {
+    if (buffActive) {
+      alert("버프가 이미 활성화 중입니다!");
+      return;
+    }
+
+    if (money < 100000) {
+      alert("돈이 부족합니다!");
+      return;
+    }
+
+    money -= 100000;
+    buffActive = true;
+    buffEndTime = Date.now() + 10 * 60 * 1000;
+    incomePerSec *= 2;
+
+    saveState();
+
+    const buffInterval = setInterval(() => {
+      if (!buffActive) {
+        clearInterval(buffInterval);
+        buffTimeElem.textContent = "";
+        return;
+      }
+
+      let remaining = Math.floor((buffEndTime - Date.now()) / 1000);
+      if (remaining <= 0) {
+        buffActive = false;
+        incomePerSec /= 2;
+        buffTimeElem.textContent = "";
+        saveState();
+        clearInterval(buffInterval);
+      } else {
+        let min = Math.floor(remaining / 60);
+        let sec = remaining % 60;
+        buffTimeElem.textContent = `2배 버프 활성화! ${min}분 ${sec}초 남음`;
+      }
+    }, 1000);
+
+    updateDisplay();
+  }
+
+  function saveState() {
+    localStorage.setItem('money', money);
+    localStorage.setItem('incomePerSec', incomePerSec);
+    localStorage.setItem('boughtItems', JSON.stringify(boughtItems));
+    localStorage.setItem('buffActive', buffActive);
+    localStorage.setItem('buffEndTime', buffEndTime);
+  }
+
+  function loadState() {
+    money = Number(localStorage.getItem('money')) || 0;
+    incomePerSec = Number(localStorage.getItem('incomePerSec')) || baseIncomePerSec;
+    boughtItems = JSON.parse(localStorage.getItem('boughtItems')) || {};
+    buffActive = localStorage.getItem('buffActive') === "true";
+    buffEndTime = Number(localStorage.getItem('buffEndTime')) || 0;
+
+    if (buffActive) {
+      activateBuff();
+    }
+  }
+
+  window.buyItem = buyItem;
+  buffBtn.onclick = activateBuff;
+
+  loadState();
+  renderItems();
+  updateDisplay();
+
+  setInterval(gameLoop, 1000);
+
+</script>
+</body>
+</html>
